@@ -13,19 +13,23 @@ app.use(cors({
   credentials: true
 }));
 
-// Your routes should be here
+// Test route
+app.get('/test', (req, res) => {
+  res.json({ message: 'Backend is working!' });
+});
+
+// Your API routes
 app.get('/api/your-endpoint', (req, res) => {
-  // Your logic here
   res.json({ message: 'API is working!' });
 });
 
-// Error handling
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
-});
+// For Vercel, we need to export the app
+module.exports = app;
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-}); 
+// Only listen if running directly (not on Vercel)
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+} 
