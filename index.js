@@ -98,14 +98,20 @@ app.get('/api/test-db', async (req, res) => {
       database: {
         connected: dbState === 1,
         responseTime: testResult.ok === 1 ? 'OK' : 'Failed',
-        state: dbState
+        state: dbState,
+        host: mongoose.connection.host,
+        name: mongoose.connection.name
       }
     });
   } catch (error) {
     res.status(500).json({
       success: false,
       error: 'Database connection test failed',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: error.message,
+      state: mongoose.connection.readyState,
+      connectionString: process.env.MONGODB_URI ? 'Set' : 'Not Set',
+      // Don't include actual connection string for security
+      host: mongoose.connection.host || 'Not Connected'
     });
   }
 });
