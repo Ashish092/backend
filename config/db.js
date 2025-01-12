@@ -6,7 +6,9 @@ const connectDB = async () => {
         const conn = await mongoose.connect(config.mongodbUri, {
             useNewUrlParser: true,
             useUnifiedTopology: true,
-            serverSelectionTimeoutMS: 5000 // Add timeout
+            serverSelectionTimeoutMS: 10000, // Increased timeout
+            retryWrites: true,
+            w: 'majority'
         });
 
         console.log('\n🌿 MongoDB Connection:');
@@ -21,18 +23,25 @@ const connectDB = async () => {
 
         mongoose.connection.on('disconnected', () => {
             console.log('MongoDB disconnected');
+            // Attempt to reconnect
+            setTimeout(connectDB, 5000);
         });
 
         mongoose.connection.on('reconnected', () => {
             console.log('MongoDB reconnected');
         });
 
+        return conn;
+
     } catch (error) {
         console.error('\n❌ MongoDB Connection Error:');
         console.error(`🔴 Error: ${error.message}\n`);
         
-        // Don't exit in production/serverless environment
-        if (process.env.NODE_ENV !== 'production') {
+        // Retry connection in production
+        if (process.env.NODE_ENV === 'production') {
+            console.log('Retrying connection in 5 seconds...');
+            setTimeout(connectDB, 5000);
+        } else {
             process.exit(1);
         }
     }

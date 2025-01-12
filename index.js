@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
 const config = require('./config/config');
+const mongoose = require('mongoose');
 
 // Import all routes
 const adminRoutes = require('./routes/adminRoutes');
@@ -37,12 +38,76 @@ app.use(cors({
 }));
 
 // Health check route
-app.get('/', (req, res) => {
-  res.json({ 
-    message: 'Backend API is running',
-    environment: process.env.NODE_ENV || 'development',
-    timestamp: new Date().toISOString()
-  });
+app.get('/', async (req, res) => {
+  try {
+    // Check MongoDB connection
+    const dbState = mongoose.connection.readyState;
+    const dbStatus = {
+      0: "disconnected",
+      1: "connected",
+      2: "connecting",
+      3: "disconnecting"
+    };
+
+    // Collect system health information
+    const healthInfo = {
+      status: 'operational',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      database: {
+        status: dbStatus[dbState],
+        name: mongoose.connection.name,
+        host: mongoose.connection.host
+      },
+      api: {
+        version: process.env.npm_package_version || '1.0.0',
+        cors: {
+          enabled: true,
+          origin: config.frontendUrl
+        }
+      },
+      uptime: process.uptime(),
+    };
+
+    // If database is not connected, change status
+    if (dbState !== 1) {
+      healthInfo.status = 'degraded';
+      healthInfo.warning = 'Database connection issues detected';
+    }
+
+    res.json(healthInfo);
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+      details: 'Health check failed'
+    });
+  }
+});
+
+// Add a test database endpoint
+app.get('/api/test-db', async (req, res) => {
+  try {
+    // Try to perform a simple database operation
+    const dbState = mongoose.connection.readyState;
+    const testResult = await mongoose.connection.db.admin().ping();
+    
+    res.json({
+      success: true,
+      database: {
+        connected: dbState === 1,
+        responseTime: testResult.ok === 1 ? 'OK' : 'Failed',
+        state: dbState
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Database connection test failed',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 });
 
 // API Routes
